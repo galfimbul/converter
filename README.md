@@ -5,5 +5,5 @@
 - Retrofit 2
 - Android Architecture Components(LiveData, ViewModel, Room)
 
-Архитектура:
+Архитектурный паттерн:
  - MVVM
