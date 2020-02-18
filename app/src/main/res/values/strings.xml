@@ -7,4 +7,5 @@
     <string name="errorLoadCurrency">Невозможно загрузить список валют. Проверьте соединение с интернетом и перезапустите приложение</string>
     <string name="errorConvertationMessage">Запрос неудачен. Проверьте соединение с интернетом и повторите попытку</string>
     <string name="tv_error_label">Подсказка</string>
+    <string name="main_activity_exchange_rate_hint">курс обмена: %1s : %2s</string>
 </resources>

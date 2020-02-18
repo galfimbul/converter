@@ -20,7 +20,7 @@ interface CurrencyListDAO {
     @Query("DELETE FROM currency_table")
     fun deleteAllCurrency()
 
-    @Query("SELECT * FROM currency_table")
+    @Query("SELECT * FROM currency_table ORDER BY id")
     fun getCurrencyList():LiveData<List<CurrencyEntity>>
 
     @Query("SELECT * FROM currency_table WHERE id =:currencyId")

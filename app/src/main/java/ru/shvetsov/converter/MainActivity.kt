@@ -1,9 +1,9 @@
 package ru.shvetsov.converter
 
 import android.content.Context
-import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -17,14 +17,16 @@ import androidx.lifecycle.ViewModelProvider
 import kotlinx.android.synthetic.main.activity_main.*
 import ru.shvetsov.converter.database.CurrencyEntity
 import ru.shvetsov.converter.viewmodels.ViewModel
+import java.lang.IllegalStateException
 import java.util.*
 
 class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
     lateinit var currencyList:List<CurrencyEntity>
     lateinit var spinnerAdapter:ArrayAdapter<String>
-    lateinit var selectedItemFrom:CurrencyEntity
-    lateinit var selectedItemTo:CurrencyEntity
+    var selectedItemFromIndex:Int = 0
+    var selectedItemToIndex:Int = 0
     var timer:Timer? = null
+    var isSelectionInit = false
     private val viewModel by lazy {
         ViewModelProvider(this).get(ViewModel::class.java)
     }
@@ -32,12 +34,15 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        initObservers()
+        if (savedInstanceState!=null){
+            selectedItemFromIndex = savedInstanceState.getInt("selectedItemFromIndex")
+            selectedItemToIndex = savedInstanceState.getInt("selectedItemToIndex")
+        }
+        subscribeObservers()
         initViews()
         when {
             isNetworkConnected(this) -> {
                 viewModel.requestCurrencyFromAPI()
-                viewModel.requestExchangeFromAPI("USD","PHP")
             }
             else ->
                 Toast.makeText(this,"No internet found. Showing cached list in the view",Toast.LENGTH_LONG).show()
@@ -46,10 +51,18 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
 
 
     private fun initViews() {
+        sp_convert_from.onItemSelectedListener = this
+        sp_convert_to.onItemSelectedListener = this
         et_convert_from.addTextChangedListener(object:TextWatcher{
             override fun afterTextChanged(s: Editable?) {
-                startTimerWithWork{
-
+                if (et_convert_from.hasFocus()) {
+                    startTimerWithWork {
+                        Log.d("M_MainActivity", "convert from start")
+                        viewModel.requestExchangeFromAPI(
+                                currencyList[selectedItemFromIndex].id,
+                                currencyList[selectedItemToIndex].id
+                        )
+                    }
                 }
 
             }
@@ -65,8 +78,13 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
 
         et_convert_to.addTextChangedListener(object:TextWatcher{
             override fun afterTextChanged(s: Editable?) {
-                startTimerWithWork{
-
+                if (et_convert_to.hasFocus()) {
+                    startTimerWithWork {
+                        Log.d("M_MainActivity", "convert to start")
+                        viewModel.requestExchangeFromAPI(
+                            currencyList[selectedItemToIndex].id,
+                            currencyList[selectedItemFromIndex].id)
+                    }
                 }
 
             }
@@ -92,7 +110,7 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
         }, 600)
     }
 
-    private fun initObservers() {
+    private fun subscribeObservers() {
         viewModel.getCurrency()?.observe(this, Observer {listFromDatabase->
             Log.d("M_MainActivity","List of Currency size is : ${listFromDatabase.size}")
             currencyList = listFromDatabase
@@ -104,15 +122,29 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
         })
 
         viewModel.getExchangeRate().observe(this, Observer {
+            isSelectionInit = false
             ll_result.visibility = View.VISIBLE
             Log.d("M_MainActivity_TEST","$it")
             val string: String = if (it==null){
                 "TEST NULL"
             } else{
-                "exchange value is : ${it.exchangePair}: ${it.exchangeValue}"
+                getString(R.string.main_activity_exchange_rate_hint,it.exchangePair,String.format("%1.2f",it.exchangeValue))
             }
 
             tv_result.text = string
+            when {
+                it.exchangePair.startsWith(currencyList[selectedItemFromIndex].id) -> {
+                    if (et_convert_from.text.isNotEmpty())
+                    et_convert_to.setText(String.format("%1.2f",et_convert_from.text.toString().toFloat()*it.exchangeValue))
+                }
+                it.exchangePair.startsWith(currencyList[selectedItemToIndex].id) -> {
+                    if (et_convert_to.text.isNotEmpty())
+                    et_convert_from.setText(
+                        String.format("%1.2f",et_convert_to.text.toString().toFloat()*it.exchangeValue)
+                    )
+                }
+            }
+            isSelectionInit = true
         })
     }
 
@@ -123,14 +155,40 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
     }
 
     override fun onNothingSelected(parent: AdapterView<*>?) {
-        parent?.setSelection(0)
+
     }
 
     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-        when (view?.id){
-            R.id.sp_convert_from->{selectedItemFrom = currencyList[position]}
-            R.id.sp_convert_to->{selectedItemTo = currencyList[position]}
+
+        when (parent?.id){
+            R.id.sp_convert_from->{
+                selectedItemFromIndex = position
+                Log.d("M_Main_OnItem_Sel","OnItemSelected")
+                if (et_convert_from.text.isNotEmpty()&&et_convert_from.hasFocus() && isSelectionInit){
+                    viewModel.requestExchangeFromAPI(
+                        currencyList[selectedItemFromIndex].id,
+                        currencyList[selectedItemToIndex].id
+                    )
+
+                }
+            }
+            R.id.sp_convert_to->{
+                selectedItemToIndex = position
+                Log.d("M_Main_OnItem_Sel","OnItemSelected")
+                if (et_convert_to.text.isNotEmpty() && et_convert_to.hasFocus() && isSelectionInit){
+                    viewModel.requestExchangeFromAPI(
+                        currencyList[selectedItemToIndex].id,
+                        currencyList[selectedItemFromIndex].id
+                    )
+                }
+
+            }
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
+        super.onSaveInstanceState(outState, outPersistentState)
+        outState?.putInt("selectedItemFromIndex",selectedItemFromIndex)
+        outState?.putInt("selectedItemToIndex",selectedItemToIndex)
+    }
 }
