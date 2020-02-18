@@ -47,10 +47,10 @@ class Repository{
                 when(response.code()) {
                     200 -> {
                         Thread(Runnable {
-                            val responce = response.body()!!.currencies.values.toList()
+                            val result = response.body()!!.currencies.values.toList()
 
                             currencyListDAO.deleteAllCurrency()
-                            currencyListDAO.insert(responce)
+                            currencyListDAO.insert(result)
                         }).start()
                     }
                 }
@@ -84,7 +84,5 @@ class Repository{
             }
 
         })
-
-
     }
 }

@@ -1,6 +1,7 @@
 package ru.shvetsov.converter
 
 import android.content.Context
+import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.os.Bundle
 import android.os.PersistableBundle
@@ -26,7 +27,7 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
     var selectedItemFromIndex:Int = 0
     var selectedItemToIndex:Int = 0
     var timer:Timer? = null
-    var isSelectionInit = false
+    var isInit = false
     private val viewModel by lazy {
         ViewModelProvider(this).get(ViewModel::class.java)
     }
@@ -34,11 +35,12 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        subscribeObservers()
+
         if (savedInstanceState!=null){
             selectedItemFromIndex = savedInstanceState.getInt("selectedItemFromIndex")
             selectedItemToIndex = savedInstanceState.getInt("selectedItemToIndex")
         }
-        subscribeObservers()
         initViews()
         when {
             isNetworkConnected(this) -> {
@@ -50,9 +52,15 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
     }
 
 
+
     private fun initViews() {
-        sp_convert_from.onItemSelectedListener = this
-        sp_convert_to.onItemSelectedListener = this
+        sp_convert_from.setSelection(selectedItemFromIndex)
+        sp_convert_to.setSelection(selectedItemToIndex)
+        isInit = true
+        if (isInit) {
+            sp_convert_from.onItemSelectedListener = this
+            sp_convert_to.onItemSelectedListener = this
+        }
         et_convert_from.addTextChangedListener(object:TextWatcher{
             override fun afterTextChanged(s: Editable?) {
                 if (et_convert_from.hasFocus()) {
@@ -98,7 +106,6 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
             }
 
         })
-
     }
 
     private fun startTimerWithWork(block: () -> Unit) {
@@ -112,25 +119,22 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
 
     private fun subscribeObservers() {
         viewModel.getCurrency()?.observe(this, Observer {listFromDatabase->
-            Log.d("M_MainActivity","List of Currency size is : ${listFromDatabase.size}")
+            //Log.d("M_MainActivity","List of Currency size is : ${listFromDatabase.size}")
             currencyList = listFromDatabase
             spinnerAdapter = ArrayAdapter(this,android.R.layout.simple_spinner_item,currencyList.map { it.id })
             spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             sp_convert_to.adapter = spinnerAdapter
             sp_convert_from.adapter = spinnerAdapter
-
         })
 
         viewModel.getExchangeRate().observe(this, Observer {
-            isSelectionInit = false
             ll_result.visibility = View.VISIBLE
-            Log.d("M_MainActivity_TEST","$it")
+            //Log.d("M_MainActivity_TEST","$it")
             val string: String = if (it==null){
                 "TEST NULL"
             } else{
                 getString(R.string.main_activity_exchange_rate_hint,it.exchangePair,String.format("%1.2f",it.exchangeValue))
             }
-
             tv_result.text = string
             when {
                 it.exchangePair.startsWith(currencyList[selectedItemFromIndex].id) -> {
@@ -144,7 +148,6 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
                     )
                 }
             }
-            isSelectionInit = true
         })
     }
 
@@ -154,34 +157,35 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener{
         return activeNetwork != null && activeNetwork.isConnected
     }
 
-    override fun onNothingSelected(parent: AdapterView<*>?) {
-
-    }
+    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
 
     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+        //Log.d("M_MainActivity","isSelectionInit is : $isSelectionInit")
+        if (view!=null) {
+            when (parent?.id) {
+                R.id.sp_convert_from -> {
+                    selectedItemFromIndex = position
 
-        when (parent?.id){
-            R.id.sp_convert_from->{
-                selectedItemFromIndex = position
-                Log.d("M_Main_OnItem_Sel","OnItemSelected")
-                if (et_convert_from.text.isNotEmpty()&&et_convert_from.hasFocus() && isSelectionInit){
-                    viewModel.requestExchangeFromAPI(
-                        currencyList[selectedItemFromIndex].id,
-                        currencyList[selectedItemToIndex].id
-                    )
+                    if (et_convert_from.text.isNotEmpty() && isInit) {
+                        Log.d("M_Main_OnItem_Sel", "convert_from_OnItemSelected")
+                        viewModel.requestExchangeFromAPI(
+                            currencyList[selectedItemFromIndex].id,
+                            currencyList[selectedItemToIndex].id
+                        )
+
+                    }
+                }
+                R.id.sp_convert_to -> {
+                    selectedItemToIndex = position
+                    if (et_convert_from.text.isNotEmpty()&& isInit) {
+                        Log.d("M_Main_OnItem_Sel", "convert_to_OnItemSelected")
+                        viewModel.requestExchangeFromAPI(
+                            currencyList[selectedItemFromIndex].id,
+                            currencyList[selectedItemToIndex].id
+                        )
+                    }
 
                 }
-            }
-            R.id.sp_convert_to->{
-                selectedItemToIndex = position
-                Log.d("M_Main_OnItem_Sel","OnItemSelected")
-                if (et_convert_to.text.isNotEmpty() && et_convert_to.hasFocus() && isSelectionInit){
-                    viewModel.requestExchangeFromAPI(
-                        currencyList[selectedItemToIndex].id,
-                        currencyList[selectedItemFromIndex].id
-                    )
-                }
-
             }
         }
     }
