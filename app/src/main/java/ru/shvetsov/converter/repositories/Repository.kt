@@ -54,9 +54,7 @@ class Repository{
                         }).start()
                     }
                 }
-
             }
-
         })
     }
 
@@ -82,7 +80,6 @@ class Repository{
                     }
                 }
             }
-
         })
     }
 }
