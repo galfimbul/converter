@@ -70,6 +70,9 @@ class MainActivity : AppCompatActivity() {
                 else{
                     isInit = true
                 }
+                if (et_convert_from.hasFocus()){
+                    et_convert_from.clearFocus()
+                }
             }
         }
 
@@ -87,6 +90,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 else{
                     isInit = true
+                }
+                if (et_convert_to.hasFocus()){
+                    et_convert_to.clearFocus()
                 }
             }
         }
